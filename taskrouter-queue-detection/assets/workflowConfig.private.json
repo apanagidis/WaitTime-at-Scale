@@ -1,0 +1,48 @@
+{
+  "task_routing": {
+    "filters": [
+      {
+        "filter_friendly_name": "Attempt 1",
+        "expression": "(taskType=='callback' OR taskType=='voicemail') AND placeCallRetry==1",
+        "targets": [
+          {
+            "queue": "WQa5477bb970e668fb71c793952da047a4",
+            "timeout": 10
+          },
+          {
+            "queue": "WQ1d304d10d380a1832ab7689437993ba8"
+          }
+        ]
+      },
+      {
+        "filter_friendly_name": "Attempt 2",
+        "expression": "(taskType=='callback' OR taskType=='voicemail') AND placeCallRetry==2",
+        "targets": [
+          {
+            "queue": "WQa5477bb970e668fb71c793952da047a4",
+            "timeout": 20
+          },
+          {
+            "queue": "WQ1d304d10d380a1832ab7689437993ba8"
+          }
+        ]
+      },
+      {
+        "filter_friendly_name": "Attempt 3",
+        "expression": "(taskType=='callback' OR taskType=='voicemail') AND placeCallRetry==3",
+        "targets": [
+          {
+            "queue": "WQa5477bb970e668fb71c793952da047a4",
+            "timeout": 30
+          },
+          {
+            "queue": "WQ1d304d10d380a1832ab7689437993ba8"
+          }
+        ]
+      }
+    ],
+    "default_filter": {
+      "queue": "WQ1d304d10d380a1832ab7689437993ba8"
+    }
+  }
+}
