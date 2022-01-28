@@ -9,7 +9,7 @@ The purpose of this project is to address the need for a high volume contact cen
 In this example we will use AWS to set up our enviornment; however, this could technically be built in any combination of services that allow you to run serverless code and a database
 
 - AWS Lambda to run Node.js code and communcate with the Twilio API.
-- AWS CloudWatch to [schedule running a Lambda function](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.html).
+- AWS CloudWatch to [schedule running a Lambda function].
 - AWS DynamoDB, to store TaskRouter TaskQueue wait time data.
 - Twilio function to retreive data from DynamoDB
 
@@ -19,7 +19,7 @@ In this example we will use AWS to set up our enviornment; however, this could t
 2. Every time the IVR is executed, a Twilio function is called that is pulling the wait times from DynamoDB 
 
 ### Installation - AWS
-1. Create a DynamoDB table with partision key "ID (String)". The DynamoDB table should in the same region you specified in your .env file. 
+1. Create a DynamoDB table with partision key "ID (String)". The DynamoDB table should in the same region you will use in your .env file
 2. Create a cloudwatch event that invokes the lambda function to be triggered every 1 minute https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/Create-CloudWatch-Events-Scheduled-Rule.html
 3. Create an IAM user with read only access to your DynamoDB table.
 
@@ -29,17 +29,10 @@ In this example we will use AWS to set up our enviornment; however, this could t
 3. npm install
 4. Use the serverless framework to deploy the Lambda function (Alternatively zip and upload manually) command: "serverless deploy"
 
-### Installation - Twilio function (get wait time)
+### Installation - Twilio function 
 1. navigate to queue-wait-time
 2. create and populate .env file based on .env.sample
 3. npm install
-4. Use the Twilio serverless framework to deploy the function "twilio serverless:deploy"
-
-### Installation - Twilio function (queue detection) - Currently not working with my Wofklow, the function is not generic
-1. navigate to taskrouter-queue-detection
-2. npm install
-3. populate assets/workflowConfig.private.json. You can get this information from TaskRouter -> Workspace -> Workflows -> select your flow -> View JSON
-TODO: Need some explanation about the input event and how it matches to workflowConfig example input event { isIVRFeedback: false,language:"english", isForQueueing: "Y", isForCallback: true, testArray: [1, 2, 3], testObj: { a: "abc" } }
 4. Use the Twilio serverless framework to deploy the function "twilio serverless:deploy"
 
 ### Installation - Studio flow
