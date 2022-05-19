@@ -12,7 +12,7 @@ exports.handler = async (context, event, callback) => {
   var params = {
     TableName: TABLE,
     Key: {
-      'ID': {S: 'WaitTimes'}
+      'ID': {S: 'WaitTimes'+TWILIO_ACCOUNT_SID}
     }
    };
 
