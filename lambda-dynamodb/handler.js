@@ -1,9 +1,25 @@
 'use strict';
 require('dotenv').config();
 
-const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WORKSPACE_SID,REGION,TABLE } =
+// Only 2-3 Twilio environments are used, so using .env file for the account config. 
+// If more environments are added in the future, better refactor to pull the account details during runtime
+const { TWILIO_ACCOUNT_SID_QA,TWILIO_ACCOUNT_SID_DEV, TWILIO_AUTH_TOKEN_DEV,TWILIO_AUTH_TOKEN_QA, TWILIO_WORKSPACE_SID_DEV, TWILIO_WORKSPACE_SID_QA,REGION,TABLE } =
   process.env;
-const client = require('twilio')(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+let twilioAccountConfig = [
+  {
+    TWILIO_ACCOUNT_SID:TWILIO_ACCOUNT_SID_DEV,
+    TWILIO_AUTH_TOKEN:TWILIO_AUTH_TOKEN_DEV,
+    TWILIO_WORKSPACE_SID:TWILIO_WORKSPACE_SID_DEV
+  },
+  {
+    TWILIO_ACCOUNT_SID:TWILIO_ACCOUNT_SID_QA,
+    TWILIO_AUTH_TOKEN:TWILIO_AUTH_TOKEN_QA,
+    TWILIO_WORKSPACE_SID:TWILIO_WORKSPACE_SID_QA
+  }
+]
+
+let client;
 
 var AWS = require('aws-sdk');
 AWS.config.update({region: REGION});
@@ -19,7 +35,7 @@ const dbSet = async (params) => {
   });
 };
 
-const getQueueSids = async () => {
+const getQueueSids = async (TWILIO_WORKSPACE_SID) => {
   try {
     let queueSids = [];
     const queues = await client.taskrouter
@@ -35,7 +51,7 @@ const getQueueSids = async () => {
 };
 
 // Get wait time per queue
-const getWaitTimes = async (sids) => {
+const getWaitTimes = async (sids,TWILIO_WORKSPACE_SID) => {
   try {
     let waitTimeObj = { queues: {} };
     for (let index = 0; index < sids.length; index++) {
@@ -51,7 +67,6 @@ const getWaitTimes = async (sids) => {
         timestamp: today.toISOString(),
       };
     }
-    console.log('Queue Wait Times: ', waitTimeObj);
     const queueTimes = JSON.stringify(waitTimeObj);
     return queueTimes;
   } catch (error) {
@@ -60,24 +75,36 @@ const getWaitTimes = async (sids) => {
 };
 
 module.exports.hello = async (event) => {
-  const queueSids = await getQueueSids();
-  const waitTimes = await getWaitTimes(queueSids);
-  console.log(queueSids);
-  console.log(waitTimes)
 
-  var params = {
-    TableName: TABLE,
-    Item: {
-      "ID": {
-        "S": "WaitTimes"
-      },
-      "data": {
-        "S": JSON.stringify(waitTimes)
+  let i=0;
+  while (i<twilioAccountConfig.length) {
+    if(twilioAccountConfig[i].TWILIO_ACCOUNT_SID && twilioAccountConfig[i].TWILIO_WORKSPACE_SID && twilioAccountConfig[i].TWILIO_AUTH_TOKEN){
+
+        client = require('twilio')(twilioAccountConfig[i].TWILIO_ACCOUNT_SID, twilioAccountConfig[i].TWILIO_AUTH_TOKEN);
+
+        const queueSids = await getQueueSids(twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
+        const waitTimes = await getWaitTimes(queueSids,twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
+        console.log(queueSids);
+        console.log(waitTimes)
+      
+        var params = {
+          TableName: TABLE,
+          Item: {
+            "ID": {
+              "S": "WaitTimes"+twilioAccountConfig[i].TWILIO_ACCOUNT_SID
+            },
+            "data": {
+              "S": JSON.stringify(waitTimes)
+            }
+          }
+        };
+        const dbRes = await dbSet(params);
       }
-    }
-  };
-  const dbRes = await dbSet(params);
-  
+
+    i++;
+  }
+
+  console.log("out of the loop")
 
   return {
     statusCode: 200
