@@ -19,6 +19,14 @@ let twilioAccountConfig = [
   }
 ]
 
+let _maxAttempts = 3;
+
+let _retryBaseDelayMs = 250;
+
+let _retryStatusCodes = [
+  429
+];
+
 let client;
 
 var AWS = require('aws-sdk');
@@ -52,30 +60,38 @@ const getQueueSids = async (TWILIO_WORKSPACE_SID) => {
 const timer = ms => new Promise(res => setTimeout(res, ms))
 
 // Get wait time per queue
-const getWaitTimes = async (sids,TWILIO_WORKSPACE_SID) => {
+const getWaitTimes = async (sid,TWILIO_WORKSPACE_SID,retryCount) => {
   try {
-    let waitTimeObj = { queues: {} };
-    
-    for (let index = 0; index < sids.length; index++) {
+    let waitTimeObj = {};
         const stats = await client.taskrouter
         .workspaces(TWILIO_WORKSPACE_SID)
-        .taskQueues(sids[index])
+        .taskQueues(sid)
         .cumulativeStatistics()
         .fetch();
       const timeElapsed = Date.now();
       const today = new Date(timeElapsed);
-      waitTimeObj.queues[sids[index]] = {
+      waitTimeObj= {
+        sid:sid,
         waittime: stats.waitDurationInQueueUntilAccepted.avg,
         timestamp: today.toISOString(),
       };
-      await timer(100);
-    }
-    const queueTimes = JSON.stringify(waitTimeObj);
-    return queueTimes;
+
+      return JSON.stringify(waitTimeObj);
+  
   } catch (error) {
     console.error('Failed to retrieve TaskQueue wait times.', error);
+    const currentCount = retryCount ? retryCount : 1;
+    if (currentCount <= _maxAttempts) {
+      await timer(_retryBaseDelayMs * currentCount)
+      console.log("retrying ", sid)
+      return await getWaitTimes(sid,TWILIO_WORKSPACE_SID, currentCount + 1);
+    } else {
+      throw new Error(`${error.message}. Max retry attempts exceeded`);
+    }
   }
 };
+
+
 
 module.exports.hello = async (event) => {
 
@@ -85,10 +101,15 @@ module.exports.hello = async (event) => {
 
         client = require('twilio')(twilioAccountConfig[i].TWILIO_ACCOUNT_SID, twilioAccountConfig[i].TWILIO_AUTH_TOKEN);
 
-        const queueSids = await getQueueSids(twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
-        const waitTimes = await getWaitTimes(queueSids,twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
+        let queueSids;
+        let waitTimes = [];
+        queueSids = await getQueueSids(twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
         console.log(queueSids);
-        console.log(waitTimes)
+
+        for (let index = 0; index < queueSids.length; index++) {
+          waitTimes.push(await getWaitTimes(queueSids[index],twilioAccountConfig[i].TWILIO_WORKSPACE_SID));
+          console.log("waitTimes", waitTimes)
+        }
       
         var params = {
           TableName: TABLE,
