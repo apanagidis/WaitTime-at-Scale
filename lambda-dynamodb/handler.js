@@ -49,13 +49,15 @@ const getQueueSids = async (TWILIO_WORKSPACE_SID) => {
     console.error('Failed to retrieve list of TaskQueue SIDs.', error);
   }
 };
+const timer = ms => new Promise(res => setTimeout(res, ms))
 
 // Get wait time per queue
 const getWaitTimes = async (sids,TWILIO_WORKSPACE_SID) => {
   try {
     let waitTimeObj = { queues: {} };
+    
     for (let index = 0; index < sids.length; index++) {
-      const stats = await client.taskrouter
+        const stats = await client.taskrouter
         .workspaces(TWILIO_WORKSPACE_SID)
         .taskQueues(sids[index])
         .cumulativeStatistics()
@@ -66,6 +68,7 @@ const getWaitTimes = async (sids,TWILIO_WORKSPACE_SID) => {
         waittime: stats.waitDurationInQueueUntilAccepted.avg,
         timestamp: today.toISOString(),
       };
+      await timer(500);
     }
     const queueTimes = JSON.stringify(waitTimeObj);
     return queueTimes;
@@ -103,8 +106,6 @@ module.exports.hello = async (event) => {
 
     i++;
   }
-
-  console.log("out of the loop")
 
   return {
     statusCode: 200

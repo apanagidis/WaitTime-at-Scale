@@ -38,5 +38,6 @@ In this example we will use AWS to set up our enviornment; however, this could t
 ### Installation - Studio flow
 See sample flow screenshot under assets folder
 
-
+### Limitations
+We are storing the wait times as a single item in DynamoDB which means all read requests will hit the same partition which is 3000 reads/sec
 
