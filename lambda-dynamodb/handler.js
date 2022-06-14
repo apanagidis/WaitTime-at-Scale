@@ -68,7 +68,7 @@ const getWaitTimes = async (sids,TWILIO_WORKSPACE_SID) => {
         waittime: stats.waitDurationInQueueUntilAccepted.avg,
         timestamp: today.toISOString(),
       };
-      await timer(500);
+      await timer(100);
     }
     const queueTimes = JSON.stringify(waitTimeObj);
     return queueTimes;
