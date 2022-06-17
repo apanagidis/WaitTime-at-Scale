@@ -24,7 +24,7 @@ let twilioAccountConfig = [
 AWS.config.update({region: REGION});
 var ddb = new AWS.DynamoDB({apiVersion: '2012-08-10'});
 
-let _maxAttempts = 25;
+let _maxAttempts = 8;
 // On congested accounts we want to limit the API calls per sec to avoid hitting the account wide limit of 100 calls/s
 let maxCallsSec = 10;
 let client;
@@ -38,6 +38,21 @@ const dbSet = async (params) => {
     }
   });
 };
+
+async function storeToDB(i,waitTimes ){
+    var params = {
+      TableName: TABLE,
+      Item: {
+        "ID": {
+          "S": "WaitTimes"+twilioAccountConfig[i].TWILIO_ACCOUNT_SID
+        },
+        "data": {
+          "S": JSON.stringify(waitTimes)
+        }
+      }
+    };
+    const dbRes = await dbSet(params);
+}
 
 const timer = ms => new Promise(res => setTimeout(res, ms))
 
@@ -104,24 +119,32 @@ module.exports.hello = async (event) => {
     if(twilioAccountConfig[i].TWILIO_ACCOUNT_SID && twilioAccountConfig[i].TWILIO_WORKSPACE_SID && twilioAccountConfig[i].TWILIO_AUTH_TOKEN){
 
         client = require('twilio')(twilioAccountConfig[i].TWILIO_ACCOUNT_SID, twilioAccountConfig[i].TWILIO_AUTH_TOKEN);
-
         let waitTimesPromises = [];
+        // Fetch all queue SIDs for the account
         let queueSids = await getQueueSids(twilioAccountConfig[i].TWILIO_WORKSPACE_SID);
-        console.log("number of queues",queueSids.length);
-
 
         for (let index = 0; index < queueSids.length; index++) {
-          waitTimesPromises.push(() =>  getWaitTimes(queueSids[index],twilioAccountConfig[i].TWILIO_WORKSPACE_SID));
+          waitTimesPromises.push(() => getWaitTimes(queueSids[index],twilioAccountConfig[i].TWILIO_WORKSPACE_SID));
         }
 
-        let waitTimesStats = await allSettledWithRetry(waitTimesPromises)
-        if(!waitTimesStats){
-          return {
-            statusCode: 500
-          };
+        let waitTimesStats = [];
+        for (let index = 0; index < waitTimesPromises.length; index++) {
+            if(index % maxCallsSec == 0 ){
+                let temp = await allSettledWithRetry(waitTimesPromises.slice(index,index+maxCallsSec));
+                if(!temp){
+                  return {
+                    statusCode: 500
+                  };
+                }
+                waitTimesStats.push(temp)
+                // waiting 1 sec for every maxCallSec to prevent overwhelming the Twilio wide account limit
+                timer(1000);
+            } 
         }
+        let waitTimesStatsFlat = [].concat.apply([], waitTimesStats);
+
         let waitTimes = [];
-        waitTimesStats.map(element => {
+        waitTimesStatsFlat.map(element => {
           const timeElapsed = Date.now();
           const today = new Date(timeElapsed);
           let waitTimeObj= {
@@ -132,22 +155,9 @@ module.exports.hello = async (event) => {
           waitTimes.push(JSON.stringify(waitTimeObj));
         })
 
-
-        console.log(waitTimes);
         console.log("number of queue results", waitTimes.length)
-        
-        var params = {
-          TableName: TABLE,
-          Item: {
-            "ID": {
-              "S": "WaitTimes"+twilioAccountConfig[i].TWILIO_ACCOUNT_SID
-            },
-            "data": {
-              "S": JSON.stringify(waitTimes)
-            }
-          }
-        };
-        const dbRes = await dbSet(params);
+
+        await storeToDB(i, waitTimes);
       }
 
     i++;
