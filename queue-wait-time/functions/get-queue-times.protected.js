@@ -16,7 +16,7 @@ exports.handler = async (context, event, callback) => {
     }
    };
 
-   let queueSid  = event.queueSid || "WQe3d982656da88511d644ac1b3b0abe83"
+   let queueSid  = event.queueSid || "WQ5684c8ed41bdf26073ffb02a02b2f713"
 
   // Call DynamoDB to read the item from the table
   ddb.getItem(params, function(err, data) {
@@ -28,11 +28,13 @@ exports.handler = async (context, event, callback) => {
       console.log("queueSid", queueSid);
       for(var i = 0; i < parsedResult.length; i++)
       {
-        let element = JSON.parse(parsedResult[i].trim());
-     
-        if(element && element.sid === queueSid){
-          return callback(null, JSON.parse(`{"waittime":"${element.waittime}"}`));
-        }
+        if(parsedResult[i]){
+          let element = JSON.parse(parsedResult[i]);
+      
+          if(element && element.sid === queueSid){
+            return callback(null, JSON.parse(`{"waittime":"${element.waittime}"}`));
+          }
+       }
       }
       return callback(null);
     }
